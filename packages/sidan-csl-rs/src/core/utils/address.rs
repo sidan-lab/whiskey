@@ -141,3 +141,29 @@ pub fn parse_plutus_address_to_bech32(plutus_hex: &str, network_id: u8) -> Strin
         network_id,
     )
 }
+
+#[wasm_bindgen]
+pub fn parse_native_script_address_to_bech32(native_script: &str, network_id: u8) -> String {
+    let csl_native_script = csl::NativeScript::from_json(native_script).unwrap();
+    let csl_payment_credential = csl::Credential::from_scripthash(&csl_native_script.hash());
+    csl::EnterpriseAddress::new(network_id, &csl_payment_credential)
+        .to_address()
+        .to_bech32(None)
+        .unwrap()
+}
+
+#[wasm_bindgen]
+pub fn parse_native_script_address_with_stake_key_to_bech32(
+    native_script: &str,
+    stake_key_hash: &str,
+    network_id: u8,
+) -> String {
+    let csl_native_script = csl::NativeScript::from_json(native_script).unwrap();
+    let csl_payment_credential = csl::Credential::from_scripthash(&csl_native_script.hash());
+    let csl_stake_credential =
+        csl::Credential::from_keyhash(&csl::Ed25519KeyHash::from_hex(stake_key_hash).unwrap());
+    csl::BaseAddress::new(network_id, &csl_payment_credential, &csl_stake_credential)
+        .to_address()
+        .to_bech32(None)
+        .unwrap()
+}
