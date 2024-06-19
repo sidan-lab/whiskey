@@ -1,10 +1,9 @@
 use async_trait::async_trait;
-use cardano_serialization_lib as csl;
+use cardano_serialization_lib::{self as csl};
 use csl::JsError;
-use pallas_primitives::alonzo::RedeemerTag as PRedeemerTag;
+use pallas_primitives::alonzo::{Redeemer, RedeemerTag as PRedeemerTag};
 use pallas_primitives::conway::PlutusV2Script;
 use std::collections::HashMap;
-use uplc::tx::SlotConfig;
 use uplc::Fragment;
 
 use csl::Address;
@@ -12,15 +11,14 @@ use pallas_codec::minicbor::Decoder;
 use pallas_codec::utils::{Bytes, CborWrap, KeyValuePairs};
 use pallas_primitives::babbage::{
     AssetName, Coin, CostMdls, DatumOption, PlutusData, PolicyId, PostAlonzoTransactionOutput,
-    PseudoScript, ScriptRef, TransactionOutput, Value,
+    PseudoScript, ScriptRef, Value,
 };
-use pallas_traverse::{Era, MultiEraTx};
 use sidan_csl_rs::core::constants::{get_v1_cost_models, get_v2_cost_models};
 use sidan_csl_rs::core::tx_parser::{IMeshTxParser, MeshTxParser};
 use sidan_csl_rs::model::{Action, Asset, Budget, RedeemerTag, UTxO, UtxoOutput};
 use uplc::{
-    tx::{eval_phase_two, ResolvedInput},
-    Hash, TransactionInput,
+    tx::{eval_phase_two_raw, ResolvedInput},
+    Hash, TransactionInput, TransactionOutput as PallasTransactionOutput,
 };
 
 use crate::service::IEvaluator;
@@ -48,11 +46,6 @@ impl IEvaluator for MeshTxEvaluator {
         additional_txs: &[String],
     ) -> Result<Vec<Action>, JsError> {
         let tx_bytes = hex::decode(tx_hex).expect("Invalid tx hex");
-        let mtx = MultiEraTx::decode_for_era(Era::Babbage, &tx_bytes);
-        let tx = match mtx {
-            Ok(MultiEraTx::Babbage(tx)) => tx.into_owned(),
-            _ => return Err(JsError::from_str("Invalid Tx Era")),
-        };
 
         let tx_outs: Vec<UTxO> = additional_txs
             .iter()
@@ -65,30 +58,45 @@ impl IEvaluator for MeshTxEvaluator {
         // combine inputs and tx_outs
         let all_inputs: Vec<UTxO> = inputs.iter().chain(tx_outs.iter()).cloned().collect();
 
-        eval_phase_two(
-            &tx,
-            &to_pallas_utxos(&all_inputs)?,
-            Some(&get_cost_mdls()),
-            None,
-            &SlotConfig::default(),
+        let pallas_utxos = to_pallas_utxos(&all_inputs).unwrap();
+
+        let mut utxos = HashMap::new();
+        for utxo in pallas_utxos.iter() {
+            utxos.insert(
+                TransactionInput::encode_fragment(&utxo.input).unwrap(),
+                PallasTransactionOutput::encode_fragment(&utxo.output).unwrap(),
+            );
+        };
+
+        let utxos_bytes = utxos.into_iter().collect::<Vec<(Vec<u8>, Vec<u8>)>>();
+
+        eval_phase_two_raw(
+            &tx_bytes,
+            &utxos_bytes,
+            &CostMdls::encode_fragment(&get_cost_mdls()).unwrap(),
+            (10000000000, 14000000),
+            (1596059091000, 4492800, 1000),
             false,
             |_r| (),
         )
         .map_err(|err| JsError::from_str(&format!("Error occurred during evaluation: {}", err)))
         .map(|reds| {
             reds.into_iter()
-                .map(|red| Action {
-                    index: red.index,
-                    budget: Budget {
-                        mem: red.ex_units.mem.into(),
-                        steps: red.ex_units.steps,
-                    },
-                    tag: match red.tag {
-                        PRedeemerTag::Spend => RedeemerTag::Spend,
-                        PRedeemerTag::Mint => RedeemerTag::Mint,
-                        PRedeemerTag::Cert => RedeemerTag::Cert,
-                        PRedeemerTag::Reward => RedeemerTag::Reward,
-                    },
+                .map(|red| {
+                    let redeemer = Redeemer::decode_fragment(&red).unwrap();
+                    Action {
+                        index: redeemer.index,
+                        budget: Budget {
+                            mem: redeemer.ex_units.mem.into(),
+                            steps: redeemer.ex_units.steps,
+                        },
+                        tag: match redeemer.tag {
+                            PRedeemerTag::Spend => RedeemerTag::Spend,
+                            PRedeemerTag::Mint => RedeemerTag::Mint,
+                            PRedeemerTag::Cert => RedeemerTag::Cert,
+                            PRedeemerTag::Reward => RedeemerTag::Reward,
+                        },
+                    }
                 })
                 .collect()
         })
@@ -125,7 +133,7 @@ fn to_pallas_utxos(utxos: &Vec<UTxO>) -> Result<Vec<ResolvedInput>, JsError> {
                 transaction_id: Hash::from(tx_hash),
                 index: utxo.input.output_index.into(),
             },
-            output: TransactionOutput::PostAlonzo(PostAlonzoTransactionOutput {
+            output: PallasTransactionOutput::PostAlonzo(PostAlonzoTransactionOutput {
                 address: Bytes::from(
                     Address::from_bech32(&utxo.output.address)
                         .unwrap()
