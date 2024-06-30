@@ -144,7 +144,7 @@ pub struct InlineScriptSource {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-// #[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 pub enum LanguageVersion {
     V1,
     V2,
