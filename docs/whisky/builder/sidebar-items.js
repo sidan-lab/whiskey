@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["WData"],"struct":["MeshTxBuilder","MeshTxBuilderParam","MeshTxEvaluator","WDatum","WRedeemer"],"trait":["IMeshTxBuilder"]};

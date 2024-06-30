@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["asset_class","assoc_map","bool","builtin_byte_string","bytes_to_hex","con_str","con_str0","con_str1","con_str2","currency_symbol","hex_to_bytes","hex_to_string","integer","list","maybe_staking_hash","payment_pub_key_hash","posix_time","pub_key_address","pub_key_hash","script_address","string_to_hex","token_name","tuple","tx_out_ref"]};

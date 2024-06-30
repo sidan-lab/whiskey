@@ -24,7 +24,7 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": "npm run core:test && npm run rust:test && npm run rust:doc && git add docs"
+      "pre-commit": "npm run core:test && npm run rust:test"
     }
   },
   "author": "SIDAN Lab",
