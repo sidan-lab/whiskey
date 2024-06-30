@@ -14,7 +14,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! whisky = "^0.6.0"
+//! whisky = "^0.6.1"
 //! ```
 //!
 //! ## Getting Started
