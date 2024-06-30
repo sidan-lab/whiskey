@@ -5,3 +5,4 @@ target
 */**/schemas
 */**/output
 rust/pkg
+docs
