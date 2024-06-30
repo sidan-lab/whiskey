@@ -260,17 +260,15 @@ impl IMeshCSL for MeshCSL {
         if output.datum.is_some() {
             let datum = output.datum.unwrap();
 
-            match datum.type_.as_str() {
-                "Hash" => {
-                    output_builder = output_builder.with_data_hash(&csl::hash_plutus_data(
-                        &csl::PlutusData::from_hex(&datum.data)?,
-                    ));
+            match datum {
+                Datum::Hash(data) => {
+                    output_builder = output_builder
+                        .with_data_hash(&csl::hash_plutus_data(&csl::PlutusData::from_hex(&data)?));
                 }
-                "Inline" => {
+                Datum::Inline(data) => {
                     output_builder =
-                        output_builder.with_plutus_data(&csl::PlutusData::from_hex(&datum.data)?);
+                        output_builder.with_plutus_data(&csl::PlutusData::from_hex(&data)?);
                 }
-                _ => {}
             };
         }
 
@@ -821,7 +819,7 @@ impl IMeshCSL for MeshCSL {
         if let Some(change_datum) = change_datum {
             self.tx_builder.add_change_if_needed_with_datum(
                 &csl::Address::from_bech32(&change_address)?,
-                &csl::OutputDatum::new_data(&csl::PlutusData::from_hex(&change_datum.data)?),
+                &csl::OutputDatum::new_data(&csl::PlutusData::from_hex(change_datum.get_inner())?),
             )?;
         } else {
             self.tx_builder

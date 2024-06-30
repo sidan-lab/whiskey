@@ -77,15 +77,16 @@ impl IMeshTxParser for MeshTxParser {
         let tx_outs = self.tx_body.outputs.clone();
         let mut result = vec![];
         tx_outs.iter().enumerate().for_each(|(i, current_tx_out)| {
-            let data_hash = if current_tx_out.clone().datum.unwrap().type_ == "Hash" {
-                Some(current_tx_out.clone().datum.unwrap().data.clone())
-            } else {
-                None
-            };
-            let plutus_data = if current_tx_out.clone().datum.unwrap().type_ == "Inline" {
-                Some(current_tx_out.clone().datum.unwrap().data.clone())
-            } else {
-                None
+            let (data_hash, plutus_data) = match current_tx_out.clone().datum {
+                Some(Datum::Hash(data)) => {
+                    let data_hash = Some(data);
+                    (data_hash, None)
+                }
+                Some(Datum::Inline(data)) => {
+                    let plutus_data = Some(data);
+                    (None, plutus_data)
+                }
+                None => (None, None),
             };
             let tx_out_utxo: UTxO = UTxO {
                 input: UtxoInput {
@@ -167,11 +168,12 @@ fn csl_output_to_mesh_output(output: csl::TransactionOutput) -> Output {
     }
 
     // TODO: Handle datum hash case
-    let datum: Option<Datum> = output.plutus_data().map(|csl_datum| Datum {
-        type_: "Inline".to_string(),
-        data: csl_datum
-            .to_json(csl::PlutusDatumSchema::DetailedSchema)
-            .unwrap(),
+    let datum: Option<Datum> = output.plutus_data().map(|csl_datum| {
+        Datum::Inline(
+            csl_datum
+                .to_json(csl::PlutusDatumSchema::DetailedSchema)
+                .unwrap(),
+        )
     });
 
     let reference_script: Option<ProvidedScriptSource> = match output.script_ref() {

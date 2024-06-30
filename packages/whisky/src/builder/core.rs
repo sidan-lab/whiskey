@@ -8,12 +8,13 @@ use sidan_csl_rs::{
         Anchor, Asset, Certificate, CommitteeColdResign, CommitteeHotAuth, DRep,
         DRepDeregistration, DRepRegistration, DRepUpdate, Datum, DatumSource, DelegateStake,
         DeregisterStake, InlineDatumSource, InlineScriptSource, LanguageVersion, MeshTxBuilderBody,
-        Metadata, MintItem, Output, PlutusScriptWithdrawal, PoolParams, ProvidedDatumSource,
-        ProvidedScriptSource, ProvidedSimpleScriptSource, PubKeyTxIn, PubKeyWithdrawal, Redeemer,
-        RefTxIn, RegisterPool, RegisterStake, RetirePool, ScriptSource, ScriptTxIn,
-        ScriptTxInParameter, SimpleScriptTxIn, SimpleScriptTxInParameter, StakeAndVoteDelegation,
-        StakeRegistrationAndDelegation, StakeVoteRegistrationAndDelegation, TxIn, TxInParameter,
-        UTxO, Value, VoteDelegation, VoteRegistrationAndDelegation, Withdrawal,
+        Metadata, MintItem, MintItemType, Output, PlutusScriptWithdrawal, PoolParams,
+        ProvidedDatumSource, ProvidedScriptSource, ProvidedSimpleScriptSource, PubKeyTxIn,
+        PubKeyWithdrawal, Redeemer, RefTxIn, RegisterPool, RegisterStake, RetirePool, ScriptSource,
+        ScriptTxIn, ScriptTxInParameter, SimpleScriptTxIn, SimpleScriptTxInParameter,
+        StakeAndVoteDelegation, StakeRegistrationAndDelegation, StakeVoteRegistrationAndDelegation,
+        TxIn, TxInParameter, UTxO, Value, VoteDelegation, VoteRegistrationAndDelegation,
+        Withdrawal,
     },
 };
 
@@ -147,7 +148,6 @@ impl IMeshTxBuilder for MeshTxBuilder {
         }
         if !self.adding_script_input {
             let item = TxIn::PubKeyTxIn(PubKeyTxIn {
-                type_: "PubKey".to_string(),
                 tx_in: TxInParameter {
                     tx_hash: tx_hash.to_string(),
                     tx_index,
@@ -158,7 +158,6 @@ impl IMeshTxBuilder for MeshTxBuilder {
             self.tx_in_item = Some(item);
         } else {
             let item = TxIn::ScriptTxIn(ScriptTxIn {
-                type_: "Script".to_string(),
                 tx_in: TxInParameter {
                     tx_hash: tx_hash.to_string(),
                     tx_index,
@@ -185,11 +184,9 @@ impl IMeshTxBuilder for MeshTxBuilder {
         match tx_in_item {
             TxIn::PubKeyTxIn(input) => {
                 self.tx_in_item = Some(TxIn::SimpleScriptTxIn(SimpleScriptTxIn {
-                    type_: "SimpleScript".to_string(),
                     tx_in: input.tx_in,
                     simple_script_tx_in: SimpleScriptTxInParameter::ProvidedSimpleScriptSource(
                         ProvidedSimpleScriptSource {
-                            type_: "Provided".to_string(),
                             script_cbor: script_cbor.to_string(),
                         },
                     ),
@@ -198,7 +195,6 @@ impl IMeshTxBuilder for MeshTxBuilder {
             TxIn::SimpleScriptTxIn(mut input) => {
                 input.simple_script_tx_in = SimpleScriptTxInParameter::ProvidedSimpleScriptSource(
                     ProvidedSimpleScriptSource {
-                        type_: "Provided".to_string(),
                         script_cbor: script_cbor.to_string(),
                     },
                 );
@@ -318,10 +314,7 @@ impl IMeshTxBuilder for MeshTxBuilder {
         let mut tx_output = tx_output.unwrap();
         match data.to_cbor() {
             Ok(raw_data) => {
-                tx_output.datum = Some(Datum {
-                    type_: "Hash".to_string(),
-                    data: raw_data,
-                });
+                tx_output.datum = Some(Datum::Hash(raw_data));
                 self.tx_output = Some(tx_output);
             }
             Err(_) => {
@@ -339,10 +332,7 @@ impl IMeshTxBuilder for MeshTxBuilder {
         let mut tx_output = tx_output.unwrap();
         match data.to_cbor() {
             Ok(raw_data) => {
-                tx_output.datum = Some(Datum {
-                    type_: "Inline".to_string(),
-                    data: raw_data,
-                });
+                tx_output.datum = Some(Datum::Inline(raw_data));
                 self.tx_output = Some(tx_output);
             }
             Err(_) => {
@@ -547,12 +537,12 @@ impl IMeshTxBuilder for MeshTxBuilder {
             self.queue_mint();
         }
         let mint_type = if self.adding_plutus_mint {
-            "Plutus"
+            MintItemType::Plutus
         } else {
-            "Native"
+            MintItemType::Native
         };
         self.mint_item = Some(MintItem {
-            type_: mint_type.to_string(),
+            type_: mint_type,
             policy_id: policy.to_string(),
             asset_name: name.to_string(),
             amount: quantity,
@@ -607,7 +597,7 @@ impl IMeshTxBuilder for MeshTxBuilder {
             panic!("Undefined mint");
         }
         let mut mint_item = mint_item.unwrap();
-        if mint_item.type_ == "Native" {
+        if mint_item.type_ == MintItemType::Native {
             panic!("Redeemer cannot be defined for Native script mints");
         }
         match redeemer.data.to_cbor() {
@@ -652,7 +642,6 @@ impl IMeshTxBuilder for MeshTxBuilder {
                 .push(collateral_item);
         }
         self.collateral_item = Some(PubKeyTxIn {
-            type_: "PubKey".to_string(),
             tx_in: TxInParameter {
                 tx_hash: tx_hash.to_string(),
                 tx_index,
@@ -870,10 +859,7 @@ impl IMeshTxBuilder for MeshTxBuilder {
     fn change_output_datum(&mut self, data: WData) -> &mut Self {
         match data.to_cbor() {
             Ok(raw_data) => {
-                self.core.mesh_tx_builder_body.change_datum = Some(Datum {
-                    type_: "Inline".to_string(),
-                    data: raw_data,
-                });
+                self.core.mesh_tx_builder_body.change_datum = Some(Datum::Inline(raw_data));
             }
             Err(_) => {
                 panic!("Error converting datum to CBOR");
@@ -1047,7 +1033,6 @@ impl IMeshTxBuilder for MeshTxBuilder {
 
         for input in selected_inputs {
             self.core.mesh_csl.add_tx_in(PubKeyTxIn {
-                type_: "PubKey".to_string(),
                 tx_in: TxInParameter {
                     tx_hash: input.input.tx_hash.clone(),
                     tx_index: input.input.output_index,
@@ -1059,7 +1044,6 @@ impl IMeshTxBuilder for MeshTxBuilder {
                 .mesh_tx_builder_body
                 .inputs
                 .push(TxIn::PubKeyTxIn(PubKeyTxIn {
-                    type_: "PubKey".to_string(),
                     tx_in: TxInParameter {
                         tx_hash: input.input.tx_hash,
                         tx_index: input.input.output_index,

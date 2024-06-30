@@ -65,14 +65,12 @@ pub struct RefTxIn {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PubKeyTxIn {
-    pub type_: String,
     pub tx_in: TxInParameter,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimpleScriptTxIn {
-    pub type_: String,
     pub tx_in: TxInParameter,
     pub simple_script_tx_in: SimpleScriptTxInParameter,
 }
@@ -87,14 +85,12 @@ pub enum SimpleScriptTxInParameter {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProvidedSimpleScriptSource {
-    pub type_: String,
     pub script_cbor: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InlineSimpleScriptSource {
-    pub type_: String,
     pub ref_tx_in: RefTxIn,
     pub simple_script_hash: String,
 }
@@ -102,7 +98,6 @@ pub struct InlineSimpleScriptSource {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScriptTxIn {
-    pub type_: String,
     pub tx_in: TxInParameter,
     pub script_tx_in: ScriptTxInParameter,
 }
@@ -210,12 +205,19 @@ pub struct PlutusScriptWithdrawal {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MintItem {
-    pub type_: String,
+    pub type_: MintItemType,
     pub policy_id: String,
     pub asset_name: String,
     pub amount: u64,
     pub redeemer: Option<Redeemer>,
     pub script_source: Option<ScriptSource>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MintItemType {
+    Native,
+    Plutus,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -435,9 +437,18 @@ pub struct DRepUpdate {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Datum {
-    pub type_: String, // Currently it is either "Hash" or "Inline"
-    pub data: String,
+pub enum Datum {
+    Inline(String),
+    Hash(String),
+}
+
+impl Datum {
+    pub fn get_inner(&self) -> &str {
+        match self {
+            Datum::Inline(s) => s,
+            Datum::Hash(s) => s,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
