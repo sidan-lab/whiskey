@@ -41,6 +41,14 @@ pub fn sign_transaction(tx_hex: String, signing_keys: JsVecString) -> String {
     signed_transaction.to_hex()
 }
 
+// #[test]
+// fn test_private_key_parsing() {
+//     let key = "f89081fcf711b55722c26d2734b6a324dce4976849e2feb03a3f5ab595bd987b";
+//     let skey = csl::PrivateKey::from_hex(key).unwrap();
+//     println!("Pub key {:?}", skey.to_public().to_hex());
+//     println!("Pub key hash {:?}", skey.to_public().hash().to_hex());
+// }
+
 pub fn remove_witness_set(tx_hex: String) -> String {
     let signed_transaction = csl::Transaction::from_hex(&tx_hex).unwrap();
     csl::Transaction::new(

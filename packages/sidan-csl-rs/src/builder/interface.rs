@@ -1,6 +1,19 @@
 use cardano_serialization_lib::JsError;
 
-use crate::{core::builder::MeshCSL, model::*};
+use crate::{core::builder::MeshCSL, model::*, *};
+
+#[wasm_bindgen]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct TxBuildResult {
+    status: String,
+    data: String,
+}
+
+impl TxBuildResult {
+    pub fn new(status: String, data: String) -> Self {
+        Self { status, data }
+    }
+}
 
 pub struct MeshTxBuilderCore {
     pub mesh_csl: MeshCSL,
